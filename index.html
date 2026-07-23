@@ -71,6 +71,20 @@
   .note-box{border-left:3px solid var(--mono-dim);background:var(--panel-2);padding:14px 16px;font-size:12.5px;
     color:var(--ink-dim);line-height:1.6;margin-top:20px;}
 
+  .scenario-toggle{display:flex;gap:8px;margin-bottom:16px;}
+  .scenario-toggle button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
+    padding:8px 10px;font-size:12px;cursor:pointer;}
+  .scenario-toggle button.active{border-color:var(--teal);color:var(--teal);}
+  .slider-row{margin-bottom:14px;}
+  .slider-row label{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;}
+  .slider-row label .val{font-family:'IBM Plex Mono',monospace;color:var(--teal);}
+  .slider-row input[type=range]{width:100%;height:3px;background:var(--line);-webkit-appearance:none;}
+  .slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+    background:var(--teal);cursor:pointer;border:2px solid var(--bg);}
+  .scenario-controls{display:none;}
+  .scenario-controls.visible{display:block;}
+  .baseline-note{font-size:11px;color:var(--mono-dim);margin-top:-8px;margin-bottom:16px;}
+
   footer{padding:28px 6vw 48px;font-size:12.5px;color:var(--ink-dim);border-top:1px solid var(--line);line-height:1.7;}
   footer a{color:var(--teal);}
 </style>
@@ -98,6 +112,23 @@
   </div>
 
   <div class="panel">
+    <p class="panel-title">Scenario</p>
+    <div class="scenario-toggle">
+      <button id="modeCurrent" class="active">Current conditions</button>
+      <button id="modeCustom">Custom scenario</button>
+    </div>
+    <div class="scenario-controls" id="customControls">
+      <div class="slider-row">
+        <label>Brent crude ($/bbl) <span class="val mono" id="brentVal">—</span></label>
+        <input type="range" id="brentSlider" min="40" max="150" step="1">
+      </div>
+      <div class="slider-row">
+        <label>GSCPI (supply chain stress) <span class="val mono" id="gscpiVal">—</span></label>
+        <input type="range" id="gscpiSlider" min="-2" max="4" step="0.1">
+      </div>
+      <div class="baseline-note">Forecasts below update live as you move these — this replaces "today's actual levels" with a hypothetical shock.</div>
+    </div>
+
     <p class="panel-title">Portfolio forecast</p>
     <div class="scorecard">
       <div class="stat">
@@ -120,7 +151,7 @@
 
     <p class="panel-title">Sector breakdown</p>
     <table>
-      <thead><tr><th>Sector</th><th>% of book</th><th>Confidence</th><th>Lag</th><th>Forecast growth</th></tr></thead>
+      <thead><tr><th>Sector</th><th>% of book</th><th>Confidence</th><th>Lag</th><th>Baseline</th><th>Forecast</th><th>vs baseline</th></tr></thead>
       <tbody id="breakdownBody"></tbody>
     </table>
 
@@ -135,13 +166,91 @@
 <script>
 let MODEL = null;
 const allocations = {};
+const scenario = {mode: 'current', brent: null, gscpi: null};
 
 async function loadModel() {
   const res = await fetch('data/model_output.json');
   MODEL = await res.json();
   buildSectorList();
   renderFreshness();
+  setupScenarioControls();
   compute();
+}
+
+function zScore(value, mean, std) {
+  return (value - mean) / std;
+}
+
+// Returns {baseline, forecast, delta} for one sector, using whichever
+// driver values are active (today's actual levels, or the custom sliders).
+function computeSectorForecast(s) {
+  const baseline = s.const; // calm conditions: both drivers at their historical average (z = 0)
+
+  const std = MODEL.standardization;
+  let brentVal, gscpiVal;
+  if (scenario.mode === 'custom' && std) {
+    brentVal = scenario.brent;
+    gscpiVal = scenario.gscpi;
+  } else {
+    brentVal = MODEL.latest_brent;
+    gscpiVal = MODEL.latest_gscpi;
+  }
+
+  let forecast = s.predicted_growth_pct; // fallback if standardization is unavailable
+  if (std) {
+    const brentZ = zScore(brentVal, std.brent_mean, std.brent_std);
+    const gscpiZ = zScore(gscpiVal, std.gscpi_mean, std.gscpi_std);
+    forecast = s.const + s.w_gscpi * gscpiZ + s.w_brent * brentZ;
+  }
+
+  return {baseline, forecast, delta: forecast - baseline};
+}
+
+function setupScenarioControls() {
+  const std = MODEL.standardization;
+  const modeCurrentBtn = document.getElementById('modeCurrent');
+  const modeCustomBtn = document.getElementById('modeCustom');
+  const controls = document.getElementById('customControls');
+  const brentSlider = document.getElementById('brentSlider');
+  const gscpiSlider = document.getElementById('gscpiSlider');
+
+  if (!std) {
+    modeCustomBtn.disabled = true;
+    modeCustomBtn.title = 'Custom scenarios need the model\'s standardization stats, not yet available';
+    return;
+  }
+
+  scenario.brent = MODEL.latest_brent;
+  scenario.gscpi = MODEL.latest_gscpi;
+  brentSlider.value = scenario.brent;
+  gscpiSlider.value = scenario.gscpi;
+  document.getElementById('brentVal').textContent = '$' + scenario.brent;
+  document.getElementById('gscpiVal').textContent = scenario.gscpi;
+
+  modeCurrentBtn.addEventListener('click', () => {
+    scenario.mode = 'current';
+    modeCurrentBtn.classList.add('active');
+    modeCustomBtn.classList.remove('active');
+    controls.classList.remove('visible');
+    compute();
+  });
+  modeCustomBtn.addEventListener('click', () => {
+    scenario.mode = 'custom';
+    modeCustomBtn.classList.add('active');
+    modeCurrentBtn.classList.remove('active');
+    controls.classList.add('visible');
+    compute();
+  });
+  brentSlider.addEventListener('input', e => {
+    scenario.brent = Number(e.target.value);
+    document.getElementById('brentVal').textContent = '$' + scenario.brent;
+    compute();
+  });
+  gscpiSlider.addEventListener('input', e => {
+    scenario.gscpi = Number(e.target.value);
+    document.getElementById('gscpiVal').textContent = scenario.gscpi;
+    compute();
+  });
 }
 
 function buildSectorList() {
@@ -198,10 +307,11 @@ function compute() {
   MODEL.sectors.forEach(s => {
     const pct = allocations[s.division] || 0;
     if (pct > 0) {
-      weightedGrowth += (pct / 100) * s.predicted_growth_pct;
+      const {baseline, forecast, delta} = computeSectorForecast(s);
+      weightedGrowth += (pct / 100) * forecast;
       weightedLag += (pct / 100) * s.best_lag_months;
       confWeights[s.confidence] += pct;
-      rows.push({...s, pct});
+      rows.push({...s, pct, baseline, forecast, delta});
     }
   });
 
@@ -233,13 +343,16 @@ function compute() {
   body.innerHTML = '';
   rows.sort((a, b) => b.pct - a.pct).forEach(r => {
     const badgeColor = r.confidence === 'robust' ? 'var(--teal)' : r.confidence === 'significant_no_clear_mechanism' ? 'var(--amber)' : 'var(--mono-dim)';
+    const deltaColor = r.delta < 0 ? 'var(--red)' : 'var(--teal)';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${r.sector}</td>
       <td class="mono">${r.pct}%</td>
       <td><span class="badge-pill" style="color:${badgeColor}">${r.confidence.replace(/_/g, ' ')}</span></td>
       <td class="mono">${r.best_lag_months}mo</td>
-      <td class="mono">${r.predicted_growth_pct > 0 ? '+' : ''}${r.predicted_growth_pct}%</td>
+      <td class="mono">${r.baseline > 0 ? '+' : ''}${r.baseline.toFixed(2)}%</td>
+      <td class="mono">${r.forecast > 0 ? '+' : ''}${r.forecast.toFixed(2)}%</td>
+      <td class="mono" style="color:${deltaColor}">${r.delta > 0 ? '+' : ''}${r.delta.toFixed(2)}pp</td>
     `;
     body.appendChild(tr);
   });
