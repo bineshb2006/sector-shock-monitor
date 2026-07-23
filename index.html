@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sector Shock Monitor — Portfolio Early Warning</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
   :root{
-    --bg:#0E141B; --panel:#161F29; --panel-2:#1B2733; --line:#2A3947;
-    --ink:#E9EEF3; --ink-dim:#8A98A6; --teal:#49B4A2; --amber:#E3A73E;
-    --red:#D6564A; --mono-dim:#5C6C7A;
+    --bg:#F5F6F8; --panel:#FFFFFF; --panel-2:#F0F2F5; --line:#E1E4E9;
+    --ink:#0A1930; --ink-dim:#3D4E70; --teal:#0F7A6C; --amber:#B45309;
+    --red:#B91C1C; --mono-dim:#5A6B8C;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -32,7 +33,8 @@
     padding:9px 12px;font-size:12.5px;cursor:pointer;}
   .preset-btn:hover{border-color:var(--teal);}
 
-  .sector-row{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);}
+  .sector-row{display:grid;grid-template-columns:22px 1fr 60px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);}
+  .sector-row .icon{font-size:14px;color:var(--ink-dim);text-align:center;}
   .sector-row .name{font-size:12.5px;line-height:1.35;}
   .sector-row .badge{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
   .badge.robust{background:var(--teal);}
@@ -50,16 +52,17 @@
 
   .scorecard{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
   .stat{border:1px solid var(--line);padding:16px;}
-  .stat .label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mono-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  .stat .label{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mono-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
   .stat .value{font-size:26px;font-weight:700;font-family:'Space Grotesk',sans-serif;}
   .stat .value.pos{color:var(--red);}
   .stat .value.neg{color:var(--teal);}
+  .icon-chip{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;background:var(--panel-2);color:var(--ink-dim);flex-shrink:0;}
 
   .confidence-bar{height:10px;display:flex;overflow:hidden;margin-bottom:8px;border:1px solid var(--line);}
   .confidence-bar div{height:100%;}
   .confidence-legend{display:flex;gap:16px;font-size:11.5px;color:var(--ink-dim);margin-bottom:28px;}
   .confidence-legend span{display:flex;align-items:center;gap:5px;}
-  .confidence-legend .dot{width:8px;height:8px;border-radius:50%;}
 
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
   th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;
@@ -76,7 +79,8 @@
     padding:8px 10px;font-size:12px;cursor:pointer;}
   .scenario-toggle button.active{border-color:var(--teal);color:var(--teal);}
   .slider-row{margin-bottom:14px;}
-  .slider-row label{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;}
+  .slider-row label{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px;}
+  .slider-row label .left{display:flex;align-items:center;gap:8px;}
   .slider-row label .val{font-family:'IBM Plex Mono',monospace;color:var(--teal);}
   .slider-row input[type=range]{width:100%;height:3px;background:var(--line);-webkit-appearance:none;}
   .slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
@@ -119,11 +123,11 @@
     </div>
     <div class="scenario-controls" id="customControls">
       <div class="slider-row">
-        <label>Brent crude ($/bbl) <span class="val mono" id="brentVal">—</span></label>
+        <label><span class="left"><i class="fa-solid fa-oil-can"></i> Brent crude ($/bbl)</span> <span class="val mono" id="brentVal">—</span></label>
         <input type="range" id="brentSlider" min="40" max="150" step="1">
       </div>
       <div class="slider-row">
-        <label>GSCPI (supply chain stress) <span class="val mono" id="gscpiVal">—</span></label>
+        <label><span class="left"><i class="fa-solid fa-ship"></i> Shipping / supply-chain stress</span> <span class="val mono" id="gscpiVal">—</span></label>
         <input type="range" id="gscpiSlider" min="-2" max="4" step="0.1">
       </div>
       <div class="baseline-note">Forecasts below update live as you move these — this replaces "today's actual levels" with a hypothetical shock.</div>
@@ -132,11 +136,11 @@
     <p class="panel-title">Portfolio forecast</p>
     <div class="scorecard">
       <div class="stat">
-        <div class="label">Weighted growth impact</div>
+        <div class="label"><span class="icon-chip"><i class="fa-solid fa-chart-line"></i></span>Weighted growth impact</div>
         <div class="value" id="fcGrowth">—</div>
       </div>
       <div class="stat">
-        <div class="label">Time horizon</div>
+        <div class="label"><span class="icon-chip"><i class="fa-regular fa-clock"></i></span>Time horizon</div>
         <div class="value" id="fcHorizon">—</div>
       </div>
     </div>
@@ -144,9 +148,9 @@
     <p class="panel-title">Confidence mix of this portfolio</p>
     <div class="confidence-bar" id="confBar"></div>
     <div class="confidence-legend">
-      <span><span class="dot" style="background:var(--teal)"></span>Robust</span>
-      <span><span class="dot" style="background:var(--amber)"></span>Significant, no clear mechanism</span>
-      <span><span class="dot" style="background:var(--mono-dim)"></span>Not significant</span>
+      <span><i class="fa-solid fa-circle-check" style="color:var(--teal)"></i>Robust</span>
+      <span><i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i>Significant, no clear mechanism</span>
+      <span><i class="fa-regular fa-circle-question" style="color:var(--mono-dim)"></i>Not significant</span>
     </div>
 
     <p class="panel-title">Sector breakdown</p>
@@ -167,6 +171,31 @@
 let MODEL = null;
 const allocations = {};
 const scenario = {mode: 'current', brent: null, gscpi: null};
+
+// Icon per MSIC division — used throughout the portfolio list and breakdown table
+const SECTOR_ICONS = {
+  "10": "fa-utensils", "11": "fa-beer-mug-empty", "12": "fa-leaf",
+  "13": "fa-scissors", "14": "fa-shirt", "15": "fa-shoe-prints",
+  "16": "fa-tree", "17": "fa-file-lines", "18": "fa-print",
+  "19": "fa-oil-can", "20": "fa-flask", "21": "fa-pills",
+  "22": "fa-recycle", "23": "fa-cube", "24": "fa-industry",
+  "25": "fa-wrench", "26": "fa-microchip", "27": "fa-bolt",
+  "28": "fa-gears", "29": "fa-car", "30": "fa-ship",
+  "31": "fa-couch", "32": "fa-industry", "33": "fa-screwdriver-wrench",
+  "35": "fa-plug",
+};
+function sectorIcon(division) {
+  return SECTOR_ICONS[division] || "fa-industry";
+}
+
+// Display-only renames — the underlying data/model_output.json keeps DOSM's
+// original MSIC names; this just fixes labels that read ambiguously.
+const DISPLAY_NAME_OVERRIDES = {
+  "19": "Refined petroleum & coke products",
+};
+function displayName(s) {
+  return DISPLAY_NAME_OVERRIDES[s.division] || s.sector;
+}
 
 async function loadModel() {
   const res = await fetch('data/model_output.json');
@@ -262,7 +291,8 @@ function buildSectorList() {
     const row = document.createElement('div');
     row.className = 'sector-row';
     row.innerHTML = `
-      <div class="name"><span class="badge ${badgeClass}"></span>${s.sector}</div>
+      <span class="icon"><i class="fa-solid ${sectorIcon(s.division)}"></i></span>
+      <div class="name"><span class="badge ${badgeClass}"></span>${displayName(s)}</div>
       <input type="number" min="0" max="100" value="0" id="alloc-${s.division}">
     `;
     container.appendChild(row);
@@ -346,7 +376,7 @@ function compute() {
     const deltaColor = r.delta < 0 ? 'var(--red)' : 'var(--teal)';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${r.sector}</td>
+      <td><i class="fa-solid ${sectorIcon(r.division)}" style="color:var(--ink-dim);margin-right:6px;"></i>${displayName(r)}</td>
       <td class="mono">${r.pct}%</td>
       <td><span class="badge-pill" style="color:${badgeColor}">${r.confidence.replace(/_/g, ' ')}</span></td>
       <td class="mono">${r.best_lag_months}mo</td>
