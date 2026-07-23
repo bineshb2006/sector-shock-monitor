@@ -1,21 +1,252 @@
-MIT License
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sector Shock Monitor — Portfolio Early Warning</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-Copyright (c) 2026 [Your Name]
+  :root{
+    --bg:#0E141B; --panel:#161F29; --panel-2:#1B2733; --line:#2A3947;
+    --ink:#E9EEF3; --ink-dim:#8A98A6; --teal:#49B4A2; --amber:#E3A73E;
+    --red:#D6564A; --mono-dim:#5C6C7A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  .hero{padding:48px 6vw 32px;border-bottom:1px solid var(--line);}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--teal);margin-bottom:16px;}
+  .hero h1{font-size:clamp(28px,4vw,44px);margin:0 0 14px;font-weight:700;max-width:20ch;}
+  .hero p{max-width:62ch;color:var(--ink-dim);font-size:15px;line-height:1.6;margin:0;}
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  .layout{display:grid;grid-template-columns:380px 1fr;gap:1px;background:var(--line);}
+  @media (max-width:920px){.layout{grid-template-columns:1fr;}}
+  .panel{background:var(--panel);padding:28px 26px;}
+  .panel-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px;}
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  .presets{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+  .preset-btn{text-align:left;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    padding:9px 12px;font-size:12.5px;cursor:pointer;}
+  .preset-btn:hover{border-color:var(--teal);}
+
+  .sector-row{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);}
+  .sector-row .name{font-size:12.5px;line-height:1.35;}
+  .sector-row .badge{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
+  .badge.robust{background:var(--teal);}
+  .badge.weak{background:var(--amber);}
+  .badge.none{background:var(--mono-dim);}
+  .sector-row input{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;padding:5px;text-align:right;}
+  .sector-row input:focus{outline:none;border-color:var(--teal);}
+
+  .total-row{display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:13px;}
+  .total-row .val{font-family:'IBM Plex Mono',monospace;}
+  .total-row .val.warn{color:var(--amber);}
+  .total-row .val.ok{color:var(--teal);}
+
+  .scorecard{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+  .stat{border:1px solid var(--line);padding:16px;}
+  .stat .label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mono-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  .stat .value{font-size:26px;font-weight:700;font-family:'Space Grotesk',sans-serif;}
+  .stat .value.pos{color:var(--red);}
+  .stat .value.neg{color:var(--teal);}
+
+  .confidence-bar{height:10px;display:flex;overflow:hidden;margin-bottom:8px;border:1px solid var(--line);}
+  .confidence-bar div{height:100%;}
+  .confidence-legend{display:flex;gap:16px;font-size:11.5px;color:var(--ink-dim);margin-bottom:28px;}
+  .confidence-legend span{display:flex;align-items:center;gap:5px;}
+  .confidence-legend .dot{width:8px;height:8px;border-radius:50%;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--mono-dim);padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);}
+  tr:hover td{background:var(--panel-2);}
+  .badge-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border:1px solid currentColor;text-transform:uppercase;}
+
+  .note-box{border-left:3px solid var(--mono-dim);background:var(--panel-2);padding:14px 16px;font-size:12.5px;
+    color:var(--ink-dim);line-height:1.6;margin-top:20px;}
+
+  footer{padding:28px 6vw 48px;font-size:12.5px;color:var(--ink-dim);border-top:1px solid var(--line);line-height:1.7;}
+  footer a{color:var(--teal);}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="eyebrow">Portfolio early warning — not a capital model</div>
+  <h1>Which sectors in your book move first, and by when.</h1>
+  <p>Enter your portfolio's sector mix. Each sector's sensitivity to oil price and global supply-chain stress is fitted from real Malaysian industrial output data, with autocorrelation-corrected significance testing — so you see both a forecast and how much to trust it.</p>
+</section>
+
+<div class="layout">
+  <div class="panel">
+    <p class="panel-title">Portfolio mix</p>
+    <div class="presets">
+      <button class="preset-btn" id="presetExample">Example: 50% apparel / 50% chemicals</button>
+      <button class="preset-btn" id="presetClear">Clear all</button>
+    </div>
+    <div id="sectorList"></div>
+    <div class="total-row">
+      <span>Total allocated</span>
+      <span class="val mono" id="totalPct">0%</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Portfolio forecast</p>
+    <div class="scorecard">
+      <div class="stat">
+        <div class="label">Weighted growth impact</div>
+        <div class="value" id="fcGrowth">—</div>
+      </div>
+      <div class="stat">
+        <div class="label">Time horizon</div>
+        <div class="value" id="fcHorizon">—</div>
+      </div>
+    </div>
+
+    <p class="panel-title">Confidence mix of this portfolio</p>
+    <div class="confidence-bar" id="confBar"></div>
+    <div class="confidence-legend">
+      <span><span class="dot" style="background:var(--teal)"></span>Robust</span>
+      <span><span class="dot" style="background:var(--amber)"></span>Significant, no clear mechanism</span>
+      <span><span class="dot" style="background:var(--mono-dim)"></span>Not significant</span>
+    </div>
+
+    <p class="panel-title">Sector breakdown</p>
+    <table>
+      <thead><tr><th>Sector</th><th>% of book</th><th>Confidence</th><th>Lag</th><th>Forecast growth</th></tr></thead>
+      <tbody id="breakdownBody"></tbody>
+    </table>
+
+    <div class="note-box" id="freshnessNote"></div>
+  </div>
+</div>
+
+<footer>
+  This is a decision-support and early-warning tool, not a validated capital or provisioning model. Forecasts are derived from a HAC-corrected regression on Malaysian industrial output (DOSM), oil price (EIA), and global supply chain stress (NY Fed GSCPI), tested for statistical robustness — sectors flagged "not significant" should not be treated as reliable predictions. Methodology, data sources, and full code: see the project <a href="#">README on GitHub</a>.
+</footer>
+
+<script>
+let MODEL = null;
+const allocations = {};
+
+async function loadModel() {
+  const res = await fetch('data/model_output.json');
+  MODEL = await res.json();
+  buildSectorList();
+  renderFreshness();
+  compute();
+}
+
+function buildSectorList() {
+  const container = document.getElementById('sectorList');
+  const sorted = [...MODEL.sectors].sort((a, b) => a.sector.localeCompare(b.sector));
+  sorted.forEach(s => {
+    allocations[s.division] = 0;
+    const badgeClass = s.confidence === 'robust' ? 'robust' : s.confidence === 'significant_no_clear_mechanism' ? 'weak' : 'none';
+    const row = document.createElement('div');
+    row.className = 'sector-row';
+    row.innerHTML = `
+      <div class="name"><span class="badge ${badgeClass}"></span>${s.sector}</div>
+      <input type="number" min="0" max="100" value="0" id="alloc-${s.division}">
+    `;
+    container.appendChild(row);
+    document.getElementById(`alloc-${s.division}`).addEventListener('input', e => {
+      allocations[s.division] = Number(e.target.value) || 0;
+      compute();
+    });
+  });
+}
+
+function setAllocations(map) {
+  Object.keys(allocations).forEach(k => allocations[k] = 0);
+  Object.entries(map).forEach(([k, v]) => allocations[k] = v);
+  Object.keys(allocations).forEach(k => {
+    const el = document.getElementById(`alloc-${k}`);
+    if (el) el.value = allocations[k];
+  });
+  compute();
+}
+
+document.getElementById('presetExample').addEventListener('click', () => {
+  // division 14 = Wearing apparel, division 20 = Chemicals & chemical products
+  setAllocations({"14": 50, "20": 50});
+});
+document.getElementById('presetClear').addEventListener('click', () => setAllocations({}));
+
+function renderFreshness() {
+  const el = document.getElementById('freshnessNote');
+  const gm = MODEL.latest_gscpi_month, bm = MODEL.latest_brent_month;
+  el.textContent = `Model last refreshed: ${MODEL.generated_at}. Latest GSCPI ${MODEL.latest_gscpi} (${gm}), latest Brent $${MODEL.latest_brent} (${bm}). Excludes ${MODEL.excluded_period.start} to ${MODEL.excluded_period.end} (${MODEL.excluded_period.reason}).`;
+}
+
+function compute() {
+  const total = Object.values(allocations).reduce((a, b) => a + b, 0);
+  const totalEl = document.getElementById('totalPct');
+  totalEl.textContent = total + '%';
+  totalEl.className = 'val mono ' + (Math.abs(total - 100) < 0.5 ? 'ok' : 'warn');
+
+  let weightedGrowth = 0, weightedLag = 0, confWeights = {robust: 0, significant_no_clear_mechanism: 0, not_significant: 0};
+  const rows = [];
+
+  MODEL.sectors.forEach(s => {
+    const pct = allocations[s.division] || 0;
+    if (pct > 0) {
+      weightedGrowth += (pct / 100) * s.predicted_growth_pct;
+      weightedLag += (pct / 100) * s.best_lag_months;
+      confWeights[s.confidence] += pct;
+      rows.push({...s, pct});
+    }
+  });
+
+  const growthEl = document.getElementById('fcGrowth');
+  growthEl.textContent = (total > 0 ? weightedGrowth.toFixed(2) + '%' : '—');
+  growthEl.className = 'value ' + (weightedGrowth < 0 ? 'pos' : 'neg');
+
+  document.getElementById('fcHorizon').textContent = total > 0 ? weightedLag.toFixed(1) + ' months' : '—';
+
+  const confBar = document.getElementById('confBar');
+  confBar.innerHTML = '';
+  const unallocated = Math.max(0, 100 - total);
+  const segments = [
+    {w: confWeights.robust, color: 'var(--teal)'},
+    {w: confWeights.significant_no_clear_mechanism, color: 'var(--amber)'},
+    {w: confWeights.not_significant, color: 'var(--mono-dim)'},
+    {w: unallocated, color: 'var(--line)'},
+  ];
+  segments.forEach(seg => {
+    if (seg.w > 0) {
+      const div = document.createElement('div');
+      div.style.width = seg.w + '%';
+      div.style.background = seg.color;
+      confBar.appendChild(div);
+    }
+  });
+
+  const body = document.getElementById('breakdownBody');
+  body.innerHTML = '';
+  rows.sort((a, b) => b.pct - a.pct).forEach(r => {
+    const badgeColor = r.confidence === 'robust' ? 'var(--teal)' : r.confidence === 'significant_no_clear_mechanism' ? 'var(--amber)' : 'var(--mono-dim)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.sector}</td>
+      <td class="mono">${r.pct}%</td>
+      <td><span class="badge-pill" style="color:${badgeColor}">${r.confidence.replace(/_/g, ' ')}</span></td>
+      <td class="mono">${r.best_lag_months}mo</td>
+      <td class="mono">${r.predicted_growth_pct > 0 ? '+' : ''}${r.predicted_growth_pct}%</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+loadModel();
+</script>
+
+</body>
+</html>
