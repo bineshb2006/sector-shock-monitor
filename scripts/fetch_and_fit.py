@@ -54,7 +54,7 @@ MIN_MONTHS = 24
 
 def fetch_gscpi() -> pd.DataFrame:
     url = "https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx"
-    resp = requests.get(url, timeout=20)
+    resp = requests.get(url, timeout=60)
     resp.raise_for_status()
     with open("gscpi_data.xlsx", "wb") as f:
         f.write(resp.content)
@@ -75,8 +75,16 @@ def fetch_full_brent(api_key: str) -> pd.DataFrame:
             "facets[series][]": "RBRTE", "sort[0][column]": "period",
             "sort[0][direction]": "asc", "offset": offset, "length": length,
         }
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
+        resp = None
+        for attempt in range(3):
+            try:
+                resp = requests.get(url, params=params, timeout=60)
+                resp.raise_for_status()
+                break
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                print(f"  EIA request attempt {attempt + 1} failed ({e}), retrying...")
+                if attempt == 2:
+                    raise
         js = resp.json().get("response", {})
         rows = js.get("data", [])
         all_rows.extend(rows)
