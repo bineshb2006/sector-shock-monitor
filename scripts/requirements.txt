@@ -1,0 +1,7 @@
+requests
+pandas
+numpy
+statsmodels
+pyarrow
+openpyxl
+xlrd
